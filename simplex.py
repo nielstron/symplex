@@ -3,12 +3,14 @@ from typing import *
 from enum import Enum
 from math import inf
 
-from verfication import *
+from verification import *
+from utils import *
 
 
 class SimplexResult(Enum):
     OPTIMAL = "optimal"
     UNBOUNDED = "unbounded"
+    INFEASIBLE = "infeasible"
     INVALID = "invalid"
 
 
@@ -40,7 +42,7 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int]):
         print(f"B = {B}")
         N = set(range(m)) - B
         print(f"N = {N}")
-        AB = Matrix([A[i,:] for i in sorted(list(B))])
+        AB = sub_matrix(A, sorted(list(B)))
         print("A_B:")
         print(pretty(AB))
         mABm1 = -AB**-1
@@ -94,8 +96,8 @@ def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
     n = A.shape[1]
     m = A.shape[0]
     assert len(I) == n
-    A_I = Matrix([A[i,:] for i in I])
-    b_I = Matrix([b[i] for i in I])
+    A_I = sub_matrix(A, I)
+    b_I = sub_matrix(b, I)
     v = (A_I**-1)*b_I
     J = set(i for i in range(m) if (A[i,:]*v)[0] > b[i])
     k = len(J)
@@ -143,5 +145,8 @@ def simplex_full(A: Matrix, b: Matrix, c: Matrix):
     r_init, v, opt_val = simplex(A_init, b_init, c_init, v_init, set(B_init))
     if opt_val is None or opt_val < 0:
         print("Problem is infeasible")
+        return SimplexResult.INFEASIBLE, None, None
     B = next(iter(bases(v, A, b)))
     return simplex(A, b, c, v, set(B))
+
+
