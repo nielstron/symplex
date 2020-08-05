@@ -93,8 +93,7 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int]):
 
 
 def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
-    n = A.shape[1]
-    m = A.shape[0]
+    m, n = A.shape
     assert len(I) == n
     A_I = sub_matrix(A, I)
     b_I = sub_matrix(b, I)
@@ -150,3 +149,39 @@ def simplex_full(A: Matrix, b: Matrix, c: Matrix):
     return simplex(A, b, c, v, set(B))
 
 
+def simplex_tableau(A: Matrix, b: Matrix, c: Matrix, B: Set[int]):
+    m, n = A.shape
+    c_B = sub_matrix(c, B)
+    A_B = sub_matrix(A, B)
+    A_Bm1 = A_B**-1
+    A_Bm1A = A_Bm1*A
+    A_0 = list(-c_B.transpose()*A_Bm1*b)
+    A_0.extend(list(c.transpose() - c_B.transpose()*A_Bm1*A))
+    A_rem = []
+    for i in range(m):
+        A_i = [(A_Bm1[i, :]*b)[0]]
+        A_i.extend(list(A_Bm1A[i, :]))
+        A_rem.append(A_i)
+    tableau = Matrix([A_0, *A_rem])
+    N = set(range(n)) - B
+    if all(tableau[0, j] >= 0 for j in N):
+        print("v is optimal")
+        return
+    if any(tableau[0,j] < 0 and all(tableau[i,j] <= 0 for i in range(m)) for j in N):
+        print("Problem is unbounded")
+        return
+
+
+def is_generic(A: Matrix, b: Matrix):
+    m, n = A.shape
+    for I in combinations(range(m), n+1):
+        res, _, _ = simplex_full(
+            BlockMatrix([[sub_matrix(A, I)], [-sub_matrix(A, I)]]).as_explicit(),
+            BlockMatrix([[sub_matrix(b, I)], [-sub_matrix(b, I)]]).as_explicit(),
+            Matrix(n*[0])
+        )
+        if res != SimplexResult.INFEASIBLE:
+            print(f"Matrix A is not generic, index set {I} has result {res}")
+            return False
+    print("Matrix A is generic")
+    return True
