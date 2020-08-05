@@ -1,6 +1,7 @@
-from sympy import Matrix, Float
+from sympy import Matrix, Rational
 from simplex import *
 from verification import *
+from perturb import *
 
 
 def test_ex74():
@@ -10,9 +11,6 @@ def test_ex74():
     b = Matrix([0, 1, 3, 24, 0])
     c = Matrix([1,1])
     print(is_generic(A, b))
-    eps = Float(2**-2)
-    e = Matrix([eps**(i+1) for i in range(m)])
-    #print(is_generic(A, b+e)) does not find a basis, prob due to rounding errors
     res, v_star, opt_val = simplex_full(A, b, c)
     assert res == SimplexResult.OPTIMAL
     assert v_star == Matrix([3, 6])
