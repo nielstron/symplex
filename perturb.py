@@ -1,4 +1,4 @@
-from sympy import *
+from sympy import Matrix, Rational, symbols
 from simplex import is_generic
 
 

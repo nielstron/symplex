@@ -13,8 +13,12 @@ class SimplexResult(Enum):
     INFEASIBLE = "infeasible"
     INVALID = "invalid"
 
+class PivotRule(Enum):
+    MINIMAL = lambda x: x[0]
+    MAXIMAL = lambda x: x[-1]
 
-def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int]):
+
+def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int], pivot_rule=PivotRule.MINIMAL):
     """
     :param A:
     :param b:
@@ -26,20 +30,21 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int]):
     res = None
     opt_val = None
     v_star = None
-    m = b.shape[0]
+    m, n = A.shape
     if not is_contained(v, A, b):
         res = SimplexResult.INVALID
     if not is_basis(v, A, b, B):
         print(f"{B} is not a valid Basis of {v}")
         res = SimplexResult.INVALID
-    n = c.shape[0]
     iteration = -1
+    visited_bases = {frozenset(B)}
     while res is None:
         iteration += 1
         print(f"Iteration {iteration}")
         print(f"v_{iteration}:")
         print(pretty(v))
         print(f"B = {B}")
+
         N = set(range(m)) - B
         print(f"N = {N}")
         AB = sub_matrix(A, sorted(list(B)))
@@ -66,8 +71,7 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int]):
         else:
             valid_p = [p for p in range(n) if (c.transpose()*s[p])[0] > 0]
             print(f"valid_p = {valid_p}")
-            # minimal index rule
-            p = valid_p[0]
+            p = pivot_rule(valid_p)
             print(f"p = {p}")
             R = [i for i in N if (A[i,:]*s[p])[0] > 0]
             print(f"R = {R}")
@@ -82,13 +86,16 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int]):
                 print(f"lam = {lam}")
                 i_in_candidates = [i for i, s in zip(R, step_sizes) if s == lam]
                 print(f"i_in candidates = {i_in_candidates}")
-                # again minimal index rule
-                i_in = i_in_candidates[0]
+                i_in = pivot_rule(i_in_candidates)
                 print(f"i_in = {i_in}")
                 i_out = sorted(list(B))[p]
                 print(f"i_out = {i_out}")
                 B = B - {i_out} | {i_in}
                 v = v + lam*s[p]
+                if B in visited_bases:
+                    print("Basis visited second time, detecting cycle and abort")
+                    res = SimplexResult.INVALID
+                visited_bases.add(frozenset(B))
     return res, v_star, opt_val
 
 
@@ -136,14 +143,22 @@ def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
     return A_p, b_p, c, z_0
 
 
-def simplex_full(A: Matrix, b: Matrix, c: Matrix):
+def determine_feasible_vertex(A: Matrix, b: Matrix, I: Set[int], pivot_rule=PivotRule.MINIMAL):
     n = A.shape[1]
-    I = set(range(n))
     A_init, b_init, c_init, v_init = initial_vertex_polygon(A, b, I)
     B_init = next(iter(bases(v_init, A_init, b_init)))
-    r_init, v, opt_val = simplex(A_init, b_init, c_init, v_init, set(B_init))
+    r_init, v, opt_val = simplex(A_init, b_init, c_init, v_init, set(B_init), pivot_rule=pivot_rule)
     if opt_val is None or opt_val < 0:
         print("Problem is infeasible")
+        return None
+    return Matrix(v[:n])
+
+
+def simplex_full(A: Matrix, b: Matrix, c: Matrix, pivot_rule = PivotRule.MINIMAL):
+    n = A.shape[1]
+    I = set(range(n))
+    v = determine_feasible_vertex(A, b, I, pivot_rule=pivot_rule)
+    if v is None:
         return SimplexResult.INFEASIBLE, None, None
     B = next(iter(bases(v, A, b)))
     return simplex(A, b, c, v, set(B))
