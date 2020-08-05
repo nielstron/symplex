@@ -44,6 +44,25 @@ def test_ex82():
     res, v_star, opt_val = simplex(A, b, c, x_p, set(B), PivotRule.MAXIMAL)
     assert v_star == Matrix([4, 6, 0])
 
+def test_ex81():
+    A = Matrix([
+        [0, 1, 0],
+        [0, 0, 1],
+        [1, -1, -1],
+        [3, 2, 2],
+        [-1, 0, 0],
+        [0, -1, 0],
+        [0, 0, -1],
+    ])
+    b = Matrix(
+        [6, 9, 3, 24, 0, 0, 0]
+    )
+    v_feasible = determine_feasible_vertex2(A, b, PivotRule.MAXIMAL)
+    assert is_contained(v_feasible, A, b)
+    assert is_vertex(v_feasible, A, b)
+
+
 if __name__ == '__main__':
     test_ex74()
+    test_ex81()
     test_ex82()

@@ -100,6 +100,9 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int], pivot_rule=
 
 
 def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
+    """
+    cf Lemma 3.2.5
+    """
     m, n = A.shape
     assert len(I) == n
     A_I = sub_matrix(A, I)
@@ -111,22 +114,20 @@ def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
     k_zeroes = k*[0]
     n_zeroes = n*[0]
     for i in set(range(m)) - J:
-        A_i = list(A[i,:])
-        A_i.extend(k_zeroes)
+        A_i = list(A[i,:]) + k_zeroes
         A_entries.append(A_i)
     for i,j in enumerate(J):
         k_spec = k_zeroes.copy()
         k_spec[i] = 1
-        A_i = list(A[j,:])
-        A_i.extend(k_spec)
+        A_i = list(A[j,:]) + k_spec
         A_entries.append(A_i)
     for i in range(len(J)):
         k_spec = k_zeroes.copy()
         k_spec[i] = 1
-        A_i = n_zeroes.copy()
-        A_i.extend(k_spec)
+        A_i = n_zeroes.copy() + k_spec
         A_entries.append(A_i)
     A_p = Matrix(A_entries)
+
     b_entries = list(b[i] for i in set(range(m)) - J)
     b_entries.extend(list(b[i] for i in J))
     b_entries.extend(k_zeroes)
@@ -136,8 +137,7 @@ def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
     z_0.extend(b[i] - (A[i,:]*v)[0] for i in J)
     z_0 = Matrix(z_0)
 
-    c = n_zeroes
-    c.extend(k*[1])
+    c = n_zeroes + k*[1]
     c = Matrix(c)
 
     return A_p, b_p, c, z_0
@@ -152,6 +152,39 @@ def determine_feasible_vertex(A: Matrix, b: Matrix, I: Set[int], pivot_rule=Pivo
         print("Problem is infeasible")
         return None
     return Matrix(v[:n])
+
+
+def initial_vertex_polygon2(A: Matrix, b: Matrix):
+    """
+    cf ex 8.1
+    In addition, we restrict xn+1 to be smeq 1
+    s.t. we directly obtain a feasoble solution of P as optimal vertex of P'
+    """
+    m, n = A.shape
+    A_entries = []
+    for i in range(m):
+        A_i = list(A[i,:]) + [-b[i]]
+        A_entries.append(A_i)
+    A_entries.append(n*[0]+[-1])
+    A_entries.append(n*[0]+[1])
+    A_p = Matrix(A_entries)
+
+    b_p = Matrix((m+1)*[0] + [1])
+
+    c_p = Matrix(n*[0] + [1])
+    v_0 = Matrix((n+1)*[0])
+    return A_p, b_p, c_p, v_0
+
+
+def determine_feasible_vertex2(A: Matrix, b: Matrix, pivot_rule: PivotRule.MINIMAL):
+    m, n = A.shape
+    A_init, b_init, c_init, v_0 = initial_vertex_polygon2(A, b)
+    B_init = next(iter(bases(v_0, A_init, b_init)))
+    res, v_init, opt_val = simplex(A_init, b_init, c_init, v_0, set(B_init), pivot_rule=pivot_rule)
+    if opt_val is None or opt_val < 1:
+        print("Polygon is infeasible")
+        return None
+    return Matrix(v_init[:n])
 
 
 def simplex_full(A: Matrix, b: Matrix, c: Matrix, pivot_rule = PivotRule.MINIMAL):
