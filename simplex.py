@@ -223,6 +223,8 @@ def simplex_tableau(A: Matrix, b: Matrix, c: Matrix, B: Set[int]):
 def is_generic(A: Matrix, b: Matrix):
     m, n = A.shape
     for I in combinations(range(m), n+1):
+        # check if A_I*x = b_I is infeasible
+        # note the equality, making the use of block matrices useful
         res, _, _ = simplex_full(
             BlockMatrix([[sub_matrix(A, I)], [-sub_matrix(A, I)]]).as_explicit(),
             BlockMatrix([[sub_matrix(b, I)], [-sub_matrix(b, I)]]).as_explicit(),

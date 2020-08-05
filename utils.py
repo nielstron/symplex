@@ -2,6 +2,7 @@ from sympy import Matrix
 from itertools import combinations
 from typing import *
 
+
 def active_constraints(v: Matrix, A: Matrix, b: Matrix):
     I = []
     m = b.shape[0]
@@ -18,6 +19,7 @@ def bases(v: Matrix, A: Matrix, b: Matrix):
         if sub_matrix(A, potential_basis).rank() == n:
             Bs.append(potential_basis)
     return Bs
+
 
 def sub_matrix(A: Matrix, I: Iterable[int]):
     return Matrix([A[i, :] for i in I])
