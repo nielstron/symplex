@@ -44,6 +44,7 @@ def test_ex82():
     res, v_star, opt_val = simplex(A, b, c, x_p, set(B), PivotRule.MAXIMAL)
     assert v_star == Matrix([4, 6, 0])
 
+
 def test_ex81():
     A = Matrix([
         [0, 1, 0],
@@ -62,7 +63,34 @@ def test_ex81():
     assert is_vertex(v_feasible, A, b)
 
 
+def test_example3428():
+    A = Matrix([
+        [1, 2, 1],
+        [-2, 1, 0],
+        [1, 0, 0],
+        [0, 1, 0],
+        [0, 0, 1],
+        [-1, 0, 0],
+        [0, -1, 0],
+        [0, 0, -1]
+    ])
+    m, n = A.shape
+    b = Matrix([3, 0, 1, 1, 1, 0, 0, 0])
+    c = Matrix([1,1,1])
+    B = {2,6,7}
+    v_3 = Matrix([1,0,0])
+    simplex(A, b, c, v_3, B)
+    e = pertubation_vector(range(m), Rational(1,64))
+    v_3_e = v_3 + (sub_matrix(A, B)**-1*sub_matrix(e, B))
+    b_e = b + e
+    simplex(A, b_e, c, v_3_e, B)
+    e = pertubation_vector([5,4,3,1,0,7,6,2], Rational(1,64))
+    v_3_e = v_3 + (sub_matrix(A, B)**-1*sub_matrix(e, B))
+    b_e = b + e
+    simplex(A, b_e, c, v_3_e, B)
+
 if __name__ == '__main__':
+    test_example3428()
     test_ex74()
     test_ex81()
     test_ex82()

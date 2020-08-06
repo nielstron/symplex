@@ -220,7 +220,11 @@ def simplex_tableau(A: Matrix, b: Matrix, c: Matrix, B: Set[int]):
         return
 
 
-def is_generic(A: Matrix, b: Matrix):
+def is_generic2(A: Matrix, b: Matrix):
+    """
+    Check genericity by checking for feasibility of sub polygons
+    following the definition directly
+    """
     m, n = A.shape
     for I in combinations(range(m), n+1):
         # check if A_I*x = b_I is infeasible

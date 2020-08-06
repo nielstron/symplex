@@ -28,3 +28,29 @@ def is_contained(v: Matrix, A: Matrix, b:Matrix):
 def is_vertex(v: Matrix, A:Matrix, b: Matrix):
     return len(bases(v, A, b)) > 0
 
+
+def is_feasible_eq(A: Matrix, b: Matrix):
+    A_b: Matrix = BlockMatrix([A, b]).as_explicit()
+    A_r = A.rank()
+    A_b_r = A_b.rank()
+    if A_r == A_b_r:
+        print(f"Ax = b is feasible, A, (A,b) have same ranks {A_r} and {A_b_r}")
+        return True
+    print(f"Ax = b infeasible, A, (A,b) have different ranks {A_r} and {A_b_r}")
+    return False
+
+
+def is_generic(A: Matrix, b: Matrix):
+    """
+    Check genericity by rank comparison
+    cf Theorem 3.4.5
+    """
+    m, n = A.shape
+    for I in combinations(range(m), n+1):
+        A_I = sub_matrix(A, I)
+        b_I = sub_matrix(b, I)
+        if is_feasible_eq(A_I, b_I):
+            print("Ax <= b is not generic")
+            return False
+    print("Ax <= b is generic")
+    return True
