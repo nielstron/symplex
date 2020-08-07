@@ -5,6 +5,7 @@ from math import inf
 
 from verification import *
 from utils import *
+from perturb import *
 
 
 class SimplexResult(Enum):
@@ -13,12 +14,35 @@ class SimplexResult(Enum):
     INFEASIBLE = "infeasible"
     INVALID = "invalid"
 
+
+def lex_pivot(lexord = lexmin, permutation: Iterable[int] = None):
+    """
+    returns a lexicographical maximizing pivot rule for a given permutation and lexmax/lexmin
+    """
+    def _lexmax_pivot(xs: List[int], A: Matrix, b: Matrix, v: Matrix, B: Set[int], s: Matrix, R: List[int], mA_Bm1: Matrix, *args, **kwargs):
+        ds = [delta(x, A, b, v, B, s, permutation, mA_Bm1) for x in R]
+        for x, d in zip(R, ds):
+            print(f"d_{x}:")
+            print(pretty(d))
+        _, i_in = lexord(ds)
+        return i_in
+    return _lexmax_pivot
+
+
+def nth_pivot(index: int):
+    def _nth_pivot(x: List[int], *args, **kwargs):
+        return x[index]
+    return _nth_pivot
+
+
 class PivotRule(Enum):
-    MINIMAL = lambda x: x[0]
-    MAXIMAL = lambda x: x[-1]
+    MINIMAL = nth_pivot(0)
+    MAXIMAL = nth_pivot(-1)
+    LEXMAX = lambda p: lex_pivot(lexmax, p)
+    LEXMIN = lambda p: lex_pivot(lexmin, p)
 
 
-def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int], pivot_rule=PivotRule.MINIMAL):
+def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.LEXMIN(None)):
     """
     :param A:
     :param b:
@@ -71,7 +95,7 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int], pivot_rule=
         else:
             valid_p = [p for p in range(n) if (c.transpose()*s[p])[0] > 0]
             print(f"valid_p = {valid_p}")
-            p = pivot_rule(valid_p)
+            p = pivot_rule_p(valid_p)
             print(f"p = {p}")
             R = [i for i in N if (A[i,:]*s[p])[0] > 0]
             print(f"R = {R}")
@@ -86,7 +110,7 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int], pivot_rule=
                 print(f"lam = {lam}")
                 i_in_candidates = [i for i, s in zip(R, step_sizes) if s == lam]
                 print(f"i_in candidates = {i_in_candidates}")
-                i_in = pivot_rule(i_in_candidates)
+                i_in = pivot_rule_i(i_in_candidates, A=A, b=b, v=v, B=B, mA_Bm1=mABm1, s=s[p], R=R)
                 print(f"i_in = {i_in}")
                 i_out = sorted(list(B))[p]
                 print(f"i_out = {i_out}")
@@ -143,11 +167,11 @@ def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
     return A_p, b_p, c, z_0
 
 
-def determine_feasible_vertex(A: Matrix, b: Matrix, I: Set[int], pivot_rule=PivotRule.MINIMAL):
+def determine_feasible_vertex(A: Matrix, b: Matrix, I: Set[int], **kwargs):
     n = A.shape[1]
     A_init, b_init, c_init, v_init = initial_vertex_polygon(A, b, I)
     B_init = next(iter(bases(v_init, A_init, b_init)))
-    r_init, v, opt_val = simplex(A_init, b_init, c_init, v_init, set(B_init), pivot_rule=pivot_rule)
+    r_init, v, opt_val = simplex(A_init, b_init, c_init, v_init, set(B_init), **kwargs)
     if opt_val is None or opt_val < 0:
         print("Problem is infeasible")
         return None
@@ -176,21 +200,21 @@ def initial_vertex_polygon2(A: Matrix, b: Matrix):
     return A_p, b_p, c_p, v_0
 
 
-def determine_feasible_vertex2(A: Matrix, b: Matrix, pivot_rule: PivotRule.MINIMAL):
+def determine_feasible_vertex2(A: Matrix, b: Matrix, **kwargs):
     m, n = A.shape
     A_init, b_init, c_init, v_0 = initial_vertex_polygon2(A, b)
     B_init = next(iter(bases(v_0, A_init, b_init)))
-    res, v_init, opt_val = simplex(A_init, b_init, c_init, v_0, set(B_init), pivot_rule=pivot_rule)
+    res, v_init, opt_val = simplex(A_init, b_init, c_init, v_0, set(B_init), **kwargs)
     if opt_val is None or opt_val < 1:
         print("Polygon is infeasible")
         return None
     return Matrix(v_init[:n])
 
 
-def simplex_full(A: Matrix, b: Matrix, c: Matrix, pivot_rule = PivotRule.MINIMAL):
+def simplex_full(A: Matrix, b: Matrix, c: Matrix, **kwargs):
     n = A.shape[1]
     I = set(range(n))
-    v = determine_feasible_vertex(A, b, I, pivot_rule=pivot_rule)
+    v = determine_feasible_vertex(A, b, I, **kwargs)
     if v is None:
         return SimplexResult.INFEASIBLE, None, None
     B = next(iter(bases(v, A, b)))
@@ -218,9 +242,10 @@ def simplex_tableau(A: Matrix, b: Matrix, c: Matrix, B: Set[int]):
     if any(tableau[0,j] < 0 and all(tableau[i,j] <= 0 for i in range(m)) for j in N):
         print("Problem is unbounded")
         return
+    raise NotImplementedError("Tableau method is not fully implemented yet")
 
 
-def is_generic2(A: Matrix, b: Matrix):
+def is_generic2(A: Matrix, b: Matrix, **kwargs):
     """
     Check genericity by checking for feasibility of sub polygons
     following the definition directly
@@ -232,10 +257,41 @@ def is_generic2(A: Matrix, b: Matrix):
         res, _, _ = simplex_full(
             BlockMatrix([[sub_matrix(A, I)], [-sub_matrix(A, I)]]).as_explicit(),
             BlockMatrix([[sub_matrix(b, I)], [-sub_matrix(b, I)]]).as_explicit(),
-            Matrix(n*[0])
+            Matrix(n*[0]),
+            **kwargs
         )
         if res != SimplexResult.INFEASIBLE:
             print(f"Matrix A is not generic, index set {I} has result {res}")
             return False
     print("Matrix A is generic")
     return True
+
+
+def determine_feasible_vertex3(A: Matrix, b: Matrix, c: Matrix, v: Matrix):
+    """ cf ex 9.3 """
+    m, n = A.shape
+    k = 0
+    vk = v
+    I_vk = active_constraints(vk, A, b)
+    AI_vk = sub_matrix(A, I_vk)
+    while AI_vk.rank() < n:
+        print(f"Iteration {k}")
+        ker_AI_vk = AI_vk.nullspace()
+        if len(ker_AI_vk) == 0:
+            ker_AI_vk = [Matrix([1]+(n-1)*[0])]
+        w = ker_AI_vk[0]
+        print(f"w:")
+        print(pretty(w))
+        print("A*w:")
+        print(pretty(A*w))
+        if (c.transpose()*w)[0] < 0 or ((c.transpose()*w)[0] == 0 and all((A[i,:]*w)[0] <= 0 for i in range(m))):
+            w = -w
+        if all((A[i,:]*w)[0] <= 0 for i in range(m)):
+            print(f"LP is unbounded in direction w: {list(w)}")
+            return None
+        lam = min((b[i] - (A[i,:]*vk)[0]) / (A[i,:]*w)[0] for i in range(m) if (A[i,:]*w)[0] > 0)
+        vk = vk + lam*w
+        I_vk = active_constraints(vk, A, b)
+        AI_vk = sub_matrix(A, I_vk)
+        k += 1
+    return vk
