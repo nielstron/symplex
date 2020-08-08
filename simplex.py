@@ -219,41 +219,65 @@ def simplex_full(A: Matrix, b: Matrix, c: Matrix, **kwargs):
     if v is None:
         return SimplexResult.INFEASIBLE, None, None
     B = next(iter(bases(v, A, b)))
-    return simplex(A, b, c, v, set(B))
+    return simplex(A, b, c, v, set(B), **kwargs)
 
 
 def simplex_tableau_step(A: Matrix, b: Matrix, c: Matrix, B: Set[int], pivot_rule=PivotRule.MINIMAL):
-    m, n = A.shape
-    c_B = sub_matrix(c, B)
+    """
+    Solving min b^Ty for A^Ty = c
+    which is the dual of
+    max c^Tx for Ax <= b
+    """
+    n, m = A.shape  # tranposed shape
+    b_B = sub_matrix(b, B)
     A_B = sub_matrix(A, B)
-    A_Bm1 = A_B**-1
-    A_Bm1A = A_Bm1*A
-    A_Bm1b = A_Bm1*b
-    tableau = BlockMatrix(
-        [-c_B.transpose()*A_Bm1b, c.transpose()-c_B.transpose()*A_Bm1A],
-        [A_Bm1b, A_Bm1A]
-    ).as_explicit()
+    A_Bm1T = (A_B**-1).transpose()
+    A_Bm1TAT = A_Bm1T*A.transpose()
+    A_Bm1Tc = A_Bm1T*c
+    tableau = BlockMatrix([
+        [-b_B.transpose()*A_Bm1Tc, b.transpose()-b_B.transpose()*A_Bm1TAT],
+        [A_Bm1Tc, A_Bm1TAT]
+    ]).as_explicit()
     N = set(range(n)) - B
     if all(tableau[0, j+1] >= 0 for j in N):
         print("v is optimal")
-        return None, A_Bm1b, -tableau[0,0]
+        return SimplexResult.OPTIMAL, B, A_Bm1Tc, -tableau[0,0]
     if any(tableau[0,j+1] < 0 and all(tableau[i+1,j+1] <= 0 for i in range(m)) for j in N):
         print("Problem is unbounded")
-        return None, None, inf
+        return SimplexResult.UNBOUNDED, None, None, inf
     js = [j for j in N if tableau[0, j+1] < 0]
     j = pivot_rule(js)
-    step_sizes = [tableau[i+1,0]/tableau[i+1,j+1] for i in range(m) if tableau[i+1, j+1] > 0]
-    lam = min(step_sizes)
-    rs = [i for i in range(m) if tableau[i+1, 0]/tableau[i+1,j+1] == lam]
+    step_sizes = [(i, tableau[i+1,0]/tableau[i+1,j+1]) for i in range(m) if tableau[i+1, j+1] > 0]
+    lam = min(map(lambda x: x[1], step_sizes))
+    B_slist = sorted(list(B))
+    rs = [B_slist[i] for (i, s) in step_sizes if s == lam]
     r = pivot_rule(rs)
-    return B - {r} | {j}, A_Bm1b, -tableau[0,0]
+    return None, B - {r} | {j}, A_Bm1Tc, -tableau[0,0]
+
+
+def solution_from_basis_solution(basis_solution: Matrix, B: List[int], dim: int):
+    """
+    construct the full solution from the optimal basis solution
+    which is essentially just zero everywhere but in the basis variables
+    """
+    full_vertex = dim*[0]
+    for b, v in zip(B, basis_solution):
+        full_vertex[b] = v
+    return Matrix(full_vertex)
 
 
 def simplex_tableau(A: Matrix, b: Matrix, c: Matrix, B: Set[int], **kwargs):
-    B_k, v_k, opt_val = B, None, None
-    while B_k is not None:
-        B_k, v_k, opt_val = simplex_tableau_step(A, b, c, B_k, **kwargs)
-    return v_k, opt_val
+    """
+    Solving min b^Ty for A^Ty = c
+    which is the dual of
+    max c^Tx for Ax <= b
+    """
+    res = None
+    B_k = B
+    while res is None:
+        res, B_k, v_k, opt_val = simplex_tableau_step(A, b, c, B_k, **kwargs)
+    v_full = solution_from_basis_solution(v_k, B_k, b.shape[0])
+    return res, v_full, opt_val, B_k
 
 
 def is_generic2(A: Matrix, b: Matrix, **kwargs):

@@ -11,7 +11,7 @@ def test_ex74():
     b = Matrix([0, 1, 3, 24, 0])
     c = Matrix([1,1])
     assert is_generic(A, b)
-    res, v_star, opt_val = simplex_full(A, b, c, pivot_rule_i=PivotRule.MINIMAL)
+    res, v_star, opt_val = simplex_full(A, b, c, pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL)
     assert res == SimplexResult.OPTIMAL
     assert v_star == Matrix([3, 6])
 
@@ -41,7 +41,7 @@ def test_ex82():
     x_p = Matrix([0,0,9])
     assert is_contained(x_p, A, b)
     B = next(iter(bases(x_p, A, b)))
-    res, v_star, opt_val = simplex(A, b, c, x_p, set(B), PivotRule.MAXIMAL)
+    res, v_star, opt_val = simplex(A, b, c, x_p, set(B), pivot_rule_p=PivotRule.MAXIMAL, pivot_rule_i=PivotRule.MAXIMAL)
     assert v_star == Matrix([4, 6, 0])
 
 
@@ -106,15 +106,14 @@ def test_example3428():
     v_3 = Matrix([1,0,0])
     simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.MINIMAL)
     #simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN([0,1,2,3,4,5,6,7]))
-    #simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN([5,4,3,1,0,7,6,2]))
+    #simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN([5,4,3,1,0,7,6,2])) !! broken
     e = pertubation_vector(range(m), Rational(1,64))
     v_3_e = v_3 + (sub_matrix(A, B)**-1*sub_matrix(e, B))
     b_e = b + e
-    simplex(A, b_e, c, v_3_e, B)
     e = pertubation_vector([5,4,3,1,0,7,6,2], Rational(1,64))
     v_3_e = v_3 + (sub_matrix(A, B)**-1*sub_matrix(e, B))
     b_e = b + e
-    simplex(A, b_e, c, v_3_e, B)
+    simplex(A, b_e, c, v_3_e, B, pivot_rule_i=PivotRule.MINIMAL)
 
 
 def test_ex93():
@@ -136,7 +135,32 @@ def test_ex112():
     b = Matrix([1, 0])
     c = Matrix([0, 0, -1])
     B = {0,1}
-    simplex_tableau(A, b, c, B, pivot_rule=PivotRule.MAXIMAL)
+    # Note the primal LP now is max b^Tx for A^Tx <= c which we hence input below
+    res, v_star, opt_val, _ = simplex_tableau(A.transpose(), c, b, B, pivot_rule=PivotRule.MAXIMAL)
+    assert v_star == Matrix([0, 0, 1])
+    assert opt_val == -1
+
+
+def test_ex113():
+    # note the dual is already given in the exercise, so we note down the primal instead
+    b = Matrix([15, 0, 6, 17])
+    A = Matrix([
+        [3, 3, 2, 4],
+        [5, -5, 1, 5],
+    ]).transpose()
+    c = Matrix([5, 6])
+    A_init = Matrix([
+        [3, 3, 2, 4, 1, 0],
+        [5, -5, 1, 5, 0, 1],
+    ]).transpose()
+    b_init = Matrix([0, 0, 0, 0, 1, 1])
+    c_init = c
+    B_init = {4, 5}
+    _, v_init, _, B = simplex_tableau(A_init, b_init, c_init, B_init)
+    res, v_star, opt_val, _ = simplex_tableau(A, b, c, B)
+    assert v_star == Matrix([0, 0, Rational(1, 6), Rational(7,6)])
+    assert opt_val == Rational(125, 6)
+
 
 
 def test_ex121():
@@ -166,3 +190,6 @@ if __name__ == '__main__':
     test_ex82()
     test_ex85()
     test_ex93()
+    test_ex112()
+    test_ex113()
+    test_ex121()
