@@ -127,6 +127,38 @@ def test_ex93():
     v0 = Matrix(3*[0])
     v_start1 = determine_feasible_vertex3(A, b, c, v0)
 
+
+def test_ex112():
+    A = Matrix([
+        [1, 1, 1],
+        [1, -1, 0]
+    ])
+    b = Matrix([1, 0])
+    c = Matrix([0, 0, -1])
+    B = {0,1}
+    simplex_tableau(A, b, c, B, pivot_rule=PivotRule.MAXIMAL)
+
+
+def test_ex121():
+    c = Matrix([-1, -1, 1])
+    b = Matrix([6+Rational(4,3), 4+Rational(2,3), 6, 4, 0, 0, 0])
+    A = Matrix([
+        [1, 2, 0],
+        [1, 1, 1],
+        [3, 0, 1],
+        [0, 0, 1],
+        [-1, 0, 0],
+        [0, -1, 0],
+        [0, 0, -1]
+    ])
+    x_bar_0 = Matrix([2, 2+Rational(2,3), 0])
+    assert is_contained(x_bar_0, A, b)
+    assert set(active_constraints(x_bar_0, A, b)) == {0, 1, 2, 6}
+    B = list(bases(x_bar_0,A,b))[-1]
+    res, x_star, opt_val = simplex(A, b, c, x_bar_0, set(B), pivot_rule_i=PivotRule.MAXIMAL, pivot_rule_p=PivotRule.MAXIMAL)
+    assert x_star == Matrix([0, 0, 4])
+
+
 if __name__ == '__main__':
     test_example3428()
     test_ex74()

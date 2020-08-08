@@ -24,3 +24,56 @@ def v_star_from_perturbed_polygon(A: Matrix, b: Matrix, A_pert: Matrix, b_pert: 
     v_star = (sub_matrix(A, I_pert)**-1)*sub_matrix(b, I_pert)
     return v_star
 
+
+def _delta(i: int, j: int, A: Matrix, b: Matrix, v: Matrix, B: List[int], s: Matrix, mA_Bm1: Matrix):
+    if j == 0:
+        return b[i]-(A[i,:]*v)[0]
+    if j == i:
+        return 1
+    if j in B:
+        return (A[i,:]*mA_Bm1)[B.index(j)]
+    return 0
+
+
+def delta(i: int, A: Matrix, b: Matrix, v: Matrix, B: Set[int], s: Matrix, permutation: Iterable[int] = None, mA_Bm1 = None):
+    m = A.shape[0]
+    if permutation is None:
+        permutation = range(m)
+    if mA_Bm1 is None:
+        mA_Bm1 = -sub_matrix(A, B)**-1
+    B_sorted = sorted(list(B), key=lambda x: permutation.index(x))
+    return Matrix([_delta(i, j, A, b, v, B_sorted, s, mA_Bm1) for j in range(m)]) / (A[i,:]*s)[0]
+
+
+def lexcmp(d1: Matrix, d2: Matrix):
+    """
+    1  if d1 > d2
+    0 if d1 == d2
+    -1 if d1 < d2
+    """
+    n = d1.shape[0]
+    diff: Matrix = d1 - d2
+    for i in range(n):
+        if diff[i] > 0:
+            return 1
+        if diff[i] < 0:
+            return -1
+    return 0
+
+
+def lexmin(ds: Iterable[Matrix]):
+    d, i_d = None, -1
+    for i, dp in enumerate(ds):
+        if d is None or lexcmp(d, dp) > 0:
+            d = dp
+            i_d = i
+    return d, i_d
+
+
+def lexmax(ds: Iterable[Matrix]):
+    d, i_d = None, -1
+    for i, dp in enumerate(ds):
+        if d is None or lexcmp(d, dp) < 0:
+            d = dp
+            i_d = i
+    return d, i_d

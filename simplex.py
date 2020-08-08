@@ -42,7 +42,7 @@ class PivotRule(Enum):
     LEXMIN = lambda p: lex_pivot(lexmin, p)
 
 
-def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.LEXMIN(None)):
+def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.LEXMIN(None)):
     """
     :param A:
     :param b:
@@ -54,6 +54,7 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Set[int], pivot_rule_
     res = None
     opt_val = None
     v_star = None
+    B = set(B)
     m, n = A.shape
     if not is_contained(v, A, b):
         res = SimplexResult.INVALID
@@ -221,28 +222,38 @@ def simplex_full(A: Matrix, b: Matrix, c: Matrix, **kwargs):
     return simplex(A, b, c, v, set(B))
 
 
-def simplex_tableau(A: Matrix, b: Matrix, c: Matrix, B: Set[int]):
+def simplex_tableau_step(A: Matrix, b: Matrix, c: Matrix, B: Set[int], pivot_rule=PivotRule.MINIMAL):
     m, n = A.shape
     c_B = sub_matrix(c, B)
     A_B = sub_matrix(A, B)
     A_Bm1 = A_B**-1
     A_Bm1A = A_Bm1*A
-    A_0 = list(-c_B.transpose()*A_Bm1*b)
-    A_0.extend(list(c.transpose() - c_B.transpose()*A_Bm1*A))
-    A_rem = []
-    for i in range(m):
-        A_i = [(A_Bm1[i, :]*b)[0]]
-        A_i.extend(list(A_Bm1A[i, :]))
-        A_rem.append(A_i)
-    tableau = Matrix([A_0, *A_rem])
+    A_Bm1b = A_Bm1*b
+    tableau = BlockMatrix(
+        [-c_B.transpose()*A_Bm1b, c.transpose()-c_B.transpose()*A_Bm1A],
+        [A_Bm1b, A_Bm1A]
+    ).as_explicit()
     N = set(range(n)) - B
-    if all(tableau[0, j] >= 0 for j in N):
+    if all(tableau[0, j+1] >= 0 for j in N):
         print("v is optimal")
-        return
-    if any(tableau[0,j] < 0 and all(tableau[i,j] <= 0 for i in range(m)) for j in N):
+        return None, A_Bm1b, -tableau[0,0]
+    if any(tableau[0,j+1] < 0 and all(tableau[i+1,j+1] <= 0 for i in range(m)) for j in N):
         print("Problem is unbounded")
-        return
-    raise NotImplementedError("Tableau method is not fully implemented yet")
+        return None, None, inf
+    js = [j for j in N if tableau[0, j+1] < 0]
+    j = pivot_rule(js)
+    step_sizes = [tableau[i+1,0]/tableau[i+1,j+1] for i in range(m) if tableau[i+1, j+1] > 0]
+    lam = min(step_sizes)
+    rs = [i for i in range(m) if tableau[i+1, 0]/tableau[i+1,j+1] == lam]
+    r = pivot_rule(rs)
+    return B - {r} | {j}, A_Bm1b, -tableau[0,0]
+
+
+def simplex_tableau(A: Matrix, b: Matrix, c: Matrix, B: Set[int], **kwargs):
+    B_k, v_k, opt_val = B, None, None
+    while B_k is not None:
+        B_k, v_k, opt_val = simplex_tableau_step(A, b, c, B_k, **kwargs)
+    return v_k, opt_val
 
 
 def is_generic2(A: Matrix, b: Matrix, **kwargs):
