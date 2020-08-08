@@ -3,7 +3,6 @@ from typing import *
 from enum import Enum
 from math import inf
 
-from verification import *
 from utils import *
 from perturb import *
 
@@ -13,6 +12,7 @@ class SimplexResult(Enum):
     UNBOUNDED = "unbounded"
     INFEASIBLE = "infeasible"
     INVALID = "invalid"
+    CYCLE = "cycle"
 
 
 def lex_pivot(lexord = lexmin, permutation: Iterable[int] = None):
@@ -38,18 +38,14 @@ def nth_pivot(index: int):
 class PivotRule(Enum):
     MINIMAL = nth_pivot(0)
     MAXIMAL = nth_pivot(-1)
-    LEXMAX = lambda p: lex_pivot(lexmax, p)
+    LEXMAX = lambda p: lex_pivot(lexmax, p)  # Does not work yet!
     LEXMIN = lambda p: lex_pivot(lexmin, p)
 
 
-def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.LEXMIN(None)):
+def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL):
     """
-    :param A:
-    :param b:
-    :param c:
-    :param v:
-    :param B: Basis (!) 0 indexed
-    :return:
+    Performs simplex algorithm on given input
+    Note that all constraints are 0-indexed (beware off-by-one errors)
     """
     res = None
     opt_val = None
@@ -119,7 +115,7 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot
                 v = v + lam*s[p]
                 if B in visited_bases:
                     print("Basis visited second time, detecting cycle and abort")
-                    res = SimplexResult.INVALID
+                    res = SimplexResult.CYCLE
                 visited_bases.add(frozenset(B))
     return res, v_star, opt_val
 
@@ -182,7 +178,7 @@ def determine_feasible_vertex(A: Matrix, b: Matrix, I: Set[int], **kwargs):
 def initial_vertex_polygon2(A: Matrix, b: Matrix):
     """
     cf ex 8.1
-    In addition, we restrict xn+1 to be smeq 1
+    In addition, we restrict x_n+1 <= 1
     s.t. we directly obtain a feasoble solution of P as optimal vertex of P'
     """
     m, n = A.shape

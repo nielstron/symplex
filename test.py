@@ -1,6 +1,6 @@
-from sympy import Matrix, Rational
+from sympy import Matrix, Rational, Identity, BlockMatrix
 from simplex import *
-from verification import *
+from utils import *
 from perturb import *
 
 
@@ -78,12 +78,12 @@ def test_ex85():
     _, v_start1, _ = simplex(A_init, b_init, c_init, v_init, set(B_init), pivot_rule_i=PivotRule.MINIMAL)
     v_start1 = Matrix(v_start1[:2])
     I_start1 = active_constraints(v_start1, A, b)
-    _, v_start2, _ = simplex(A_init, b_init, c_init, v_init, set(B_init), pivot_rule_i=PivotRule.MAXIMAL)
-    v_start2 = Matrix(v_start2[:2])
-    I_start2 = active_constraints(v_start2, A, b)
     assert v_start1 == Matrix([1,0])
     assert set(I_start1) == {2, 3}
-    # does not work as expected
+    # does not work as expected, gives same result as above
+    #_, v_start2, _ = simplex(A_init, b_init, c_init, v_init, set(B_init), pivot_rule_i=PivotRule.MAXIMAL)
+    #v_start2 = Matrix(v_start2[:2])
+    #I_start2 = active_constraints(v_start2, A, b)
     #assert v_start2 == Matrix([1,1])
     #assert I_start2 == {0, 3}
 

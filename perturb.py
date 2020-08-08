@@ -1,6 +1,6 @@
 from typing import *
 from sympy import Matrix, Rational, symbols, RealNumber
-from verification import *
+from utils import *
 
 
 def pertubation_vector(perm: Iterable[int], eps):
