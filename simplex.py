@@ -22,10 +22,9 @@ def lex_pivot(lexord = lexmin, permutation: Iterable[int] = None):
     def _lexmax_pivot(xs: List[int], A: Matrix, b: Matrix, v: Matrix, B: Set[int], s: Matrix, R: List[int], mA_Bm1: Matrix, *args, **kwargs):
         ds = [delta(x, A, b, v, B, s, permutation, mA_Bm1) for x in R]
         for x, d in zip(R, ds):
-            print(f"d_{x}:")
-            print(pretty(d))
-        _, i_in = lexord(ds)
-        return i_in
+            print(f"d_{x}: {list(d)}")
+        _, chosen_in = lexord(ds)
+        return R[chosen_in]
     return _lexmax_pivot
 
 
@@ -62,8 +61,7 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot
     while res is None:
         iteration += 1
         print(f"Iteration {iteration}")
-        print(f"v_{iteration}:")
-        print(pretty(v))
+        print(f"v_{iteration}^T: {list(v.transpose())}")
         print(f"B = {B}")
 
         N = set(range(m)) - B
@@ -75,12 +73,11 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot
         print("-A_B^-1:")
         print(pretty(mABm1))
         s = [mABm1[:,i] for i in range(n)]
-        print("s:")
+        print(f"s:")
         print(pretty(s))
 
         mABm1_mulc = mABm1.transpose() * c
-        print("-A_B^-1*c:")
-        print(pretty(mABm1_mulc))
+        print(f"-A_B^-1*c^T: {list(mABm1_mulc.transpose())}")
         if all(e <= 0 for e in mABm1_mulc[:]): # equivalent: all(c.transpose()*s[j] <= 0 for j in range(n)):
             print("v optimal")
             # print some properties
@@ -311,10 +308,8 @@ def determine_feasible_vertex3(A: Matrix, b: Matrix, c: Matrix, v: Matrix):
         if len(ker_AI_vk) == 0:
             ker_AI_vk = [Matrix([1]+(n-1)*[0])]
         w = ker_AI_vk[0]
-        print(f"w:")
-        print(pretty(w))
-        print("A*w:")
-        print(pretty(A*w))
+        print(f"w^T: {list(w.transpose())}")
+        print(f"A*w: {list((A*w).transpose())}")
         if (c.transpose()*w)[0] < 0 or ((c.transpose()*w)[0] == 0 and all((A[i,:]*w)[0] <= 0 for i in range(m))):
             w = -w
         if all((A[i,:]*w)[0] <= 0 for i in range(m)):

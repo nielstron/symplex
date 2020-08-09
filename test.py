@@ -105,15 +105,30 @@ def test_example3428():
     B = {2,6,7}
     v_3 = Matrix([1,0,0])
     simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.MINIMAL)
-    #simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN([0,1,2,3,4,5,6,7]))
-    #simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN([5,4,3,1,0,7,6,2])) !! broken
-    e = pertubation_vector(range(m), Rational(1,64))
+
+    # two perturbations are applied
+    r1 = range(m)
+    r2 = [5, 4, 3, 1, 0, 7, 6, 2]
+
+    # once with explicit pertubation
+    e = pertubation_vector(r1, Rational(1,64))
     v_3_e = v_3 + (sub_matrix(A, B)**-1*sub_matrix(e, B))
     b_e = b + e
-    e = pertubation_vector([5,4,3,1,0,7,6,2], Rational(1,64))
+    res, v_r1_star_expl_pert, _ = simplex(A, b_e, c, v_3_e, B, pivot_rule_i=PivotRule.MINIMAL)
+    v_r1_star_expl = v_star_from_perturbed_polygon(A, b, b_e, v_r1_star_expl_pert)
+
+    e = pertubation_vector(r2, Rational(1,64))
     v_3_e = v_3 + (sub_matrix(A, B)**-1*sub_matrix(e, B))
     b_e = b + e
-    simplex(A, b_e, c, v_3_e, B, pivot_rule_i=PivotRule.MINIMAL)
+    res, v_r2_star_expl_pert, _ = simplex(A, b_e, c, v_3_e, B, pivot_rule_i=PivotRule.MINIMAL)
+    v_r2_star_expl = v_star_from_perturbed_polygon(A, b, b_e, v_r2_star_expl_pert)
+
+    # and once with our fancy lexmin rule
+    res, v_r1_star_lexmin, _ = simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN(r1))
+    res, v_r2_star_lexmin, _ = simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN(r2))
+    assert v_r1_star_expl == v_r1_star_lexmin
+    assert v_r2_star_expl == v_r2_star_lexmin
+
 
 
 def test_ex93():
