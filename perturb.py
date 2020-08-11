@@ -81,6 +81,9 @@ def y(i: int, A: Matrix, B: Set[int], permutation: Iterable[int] = None, mA_Bm1 
 
 
 def lexfeasible(v: Matrix, A: Matrix, b: Matrix, B: Set[int], permutation: Iterable[int]):
+    """
+    aka epsilon-compatible
+    """
     m = A.shape[0]
     zero = Matrix(m*[0])
     for i in set(active_constraints(v, A, b)) - B:

@@ -37,7 +37,7 @@ def nth_pivot(index: int):
 class PivotRule(Enum):
     MINIMAL = nth_pivot(0)
     MAXIMAL = nth_pivot(-1)
-    LEXMAX = lambda p: lex_pivot(lexmax, p)  # Does not work yet!
+    #LEXMAX = lambda p: lex_pivot(lexmax, p) usually not useful
     LEXMIN = lambda p: lex_pivot(lexmin, p)
 
 
