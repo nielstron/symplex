@@ -41,7 +41,7 @@ class PivotRule(Enum):
     LEXMIN = lambda p: lex_pivot(lexmin, p)
 
 
-def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL):
+def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL, **kwargs):
     """
     Performs simplex algorithm on given input
     Note that all constraints are 0-indexed (beware off-by-one errors)
@@ -128,6 +128,7 @@ def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
     m, n = A.shape
     assert len(I) == n
     A_I = sub_matrix(A, I)
+    assert A_I.rank() == n
     b_I = sub_matrix(b, I)
     v = (A_I**-1)*b_I
     J = set(i for i in range(m) if (A[i,:]*v)[0] > b[i])
@@ -209,10 +210,9 @@ def determine_feasible_vertex2(A: Matrix, b: Matrix, **kwargs):
     return Matrix(v_init[:n])
 
 
-def simplex_full(A: Matrix, b: Matrix, c: Matrix, **kwargs):
+def simplex_full(A: Matrix, b: Matrix, c: Matrix, feasible_vertex_procedure=determine_feasible_vertex2, **kwargs):
     n = A.shape[1]
-    I = set(range(n))
-    v = determine_feasible_vertex(A, b, I, **kwargs)
+    v = feasible_vertex_procedure(A, b, **kwargs)
     if v is None:
         return SimplexResult.INFEASIBLE, None, None
     B = next(iter(bases(v, A, b)))
@@ -299,7 +299,7 @@ def is_generic2(A: Matrix, b: Matrix, **kwargs):
     return True
 
 
-def determine_feasible_vertex3(A: Matrix, b: Matrix, c: Matrix, v: Matrix):
+def determine_feasible_vertex3(A: Matrix, b: Matrix, c: Matrix, v: Matrix, **kwargs):
     """ cf ex 9.3 """
     m, n = A.shape
     k = 0

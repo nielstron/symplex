@@ -232,12 +232,19 @@ def test_representations():
     assert S == {ImmutableMatrix([1,0,0,0]), ImmutableMatrix([0,0,0,1]), ImmutableMatrix([0,0,0,-1])}
     A_H, b_H = H_representation(V, S)
     V_H, S_H = V_representation(A_H, b_H)
-    assert V == V_H
-    assert S == S_H
+    assert set(map(lambda x: ImmutableMatrix(x[:4]), V_H)) == V
+    assert set(map(lambda x: ImmutableMatrix(x[:4]), S_H)) == S
+
+
+def test_klee_minty():
+    n = 4
+    A, b, c = klee_minty(4, Rational(1,3))
+    simplex_full(A, b, c, pivot_rule_i=PivotRule.LEXMIN(range(4)))
 
 
 if __name__ == '__main__':
-    test_representations()
+    test_klee_minty()
+    # test_representations() SLOW!
     test_practice_exam()
     test_example3428()
     test_ex74()

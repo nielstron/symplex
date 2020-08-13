@@ -3,9 +3,6 @@ from sympy.matrices.common import NonInvertibleMatrixError
 from itertools import combinations
 from typing import *
 
-import pyfme
-from pyfme.cone import Cone
-
 
 def active_constraints(v: Matrix, A: Matrix, b: Matrix):
     I = []
@@ -18,11 +15,16 @@ def active_constraints(v: Matrix, A: Matrix, b: Matrix):
 
 def bases(v: Matrix, A: Matrix, b: Matrix):
     n = v.shape[0]
-    Bs = []
     for potential_basis in combinations(active_constraints(v, A, b), n):
         if sub_matrix(A, potential_basis).rank() == n:
-            Bs.append(potential_basis)
-    return Bs
+            yield potential_basis
+
+
+def constraints_full_rank(A: Matrix, b: Matrix):
+    m, n = A.shape
+    for potential_basis in combinations(range(m), n):
+        if sub_matrix(A, potential_basis).rank() == n:
+            yield potential_basis
 
 
 def sub_matrix(A: Matrix, I: Iterable[int]):
@@ -64,7 +66,12 @@ def is_contained(v: Matrix, A: Matrix, b:Matrix):
 
 
 def is_vertex(v: Matrix, A:Matrix, b: Matrix):
-    return len(bases(v, A, b)) > 0 and is_contained(v, A, b)
+    try:
+        # check whether there are any bases for this vertex
+        next(iter(bases(v, A, b)))
+    except StopIteration:
+        return False
+    return is_contained(v, A, b)
 
 
 def is_feasible_eq(A: Matrix, b: Matrix):
@@ -158,4 +165,15 @@ def H_representation(V: Iterable[Matrix], S: Iterable[Matrix]):
     ]).as_explicit()
     b_Q = Matrix(2*n*[0] + [1] + p*[0] + q*[0])
     return A_Q, b_Q
-    pyfme.Cone()
+
+
+def klee_minty(n: int, µ):
+    A = ZeroMatrix(2*n, n).as_mutable()
+    A[0,0] = 1
+    A[1,0] = -1
+    for i in range(1, n):
+        A[2*i,i-1:i+1] = [[µ, 1]]
+        A[2*i+1,i-1:i+1] = [[µ, -1]]
+    b = Matrix(2*n*[1])
+    c = Matrix((n-1)*[0] + [1])
+    return A, b, c
