@@ -26,10 +26,7 @@ def v_star_from_perturbed_polygon(A: Matrix, b: Matrix, b_pert: Matrix, v_pert: 
 
 
 def permute(permutation: Iterable[int], v: List[int]):
-    v_new = []
-    for i in permutation:
-        v_new.append(v[i])
-    return v_new
+    return [v[i] for i in permutation]
 
 
 def _delta(i: int, j: int, A: Matrix, b: Matrix, v: Matrix, B: List[int], s: Matrix, mA_Bm1: Matrix):

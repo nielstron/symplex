@@ -323,9 +323,18 @@ def determine_feasible_vertex3(A: Matrix, b: Matrix, c: Matrix, v: Matrix):
             print(f"LP is unbounded in direction w: {list(w)}")
             return None
         Avk = A * vk
-        lam = min((b[i] - Avk[i]) / Aw[i] for i in range(m) if Aw[i] > 0)
+        step_sizes = list((b[i] - Avk[i]) / Aw[i] for i in range(m) if Aw[i] > 0)
+        lam = min(step_sizes)
         vk = vk + lam*w
         I_vk = active_constraints(vk, A, b)
         AI_vk = sub_matrix(A, I_vk)
         k += 1
     return vk
+
+
+def determine_maximizer(A: Matrix, b: Matrix, c: Matrix, feasible_vertex_func=determine_feasible_vertex2, **kwargs):
+    """ Determines a maximizer for a potentially non-line-free Polyhedron """
+    A_Q, b_Q = P_without(A, b, lineality_space(A, b))
+    v = feasible_vertex_func(A_Q, b_Q, **kwargs)
+    B = next(iter(bases(v, A_Q, b_Q)))
+    return simplex(A_Q, b_Q, c, v, B, **kwargs)

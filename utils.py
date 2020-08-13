@@ -1,7 +1,10 @@
-from sympy import Matrix, BlockMatrix
+from sympy import Matrix, BlockMatrix, Identity, ZeroMatrix
 from sympy.matrices.common import NonInvertibleMatrixError
 from itertools import combinations
 from typing import *
+
+import pyfme
+from pyfme.cone import Cone
 
 
 def active_constraints(v: Matrix, A: Matrix, b: Matrix):
@@ -90,3 +93,69 @@ def is_generic(A: Matrix, b: Matrix):
             return False
     print("Ax <= b is generic by rank comparison")
     return True
+
+
+def lineality_space(A: Matrix, b: Matrix):
+    """
+    Computes ls(P) = ker(A)
+    """
+    return A.nullspace()
+
+
+def P_without(A: Matrix, b: Matrix, B: List[Matrix]):
+    """ Fix the space spanned by the vectors in B to 0 """
+    if len(B) == 0:
+        return A, b
+    B_rows = len(B)
+    B_mat = Matrix(B).transpose()
+    A_new = BlockMatrix([
+        [A],
+        [B_mat],
+        [-B_mat],
+    ]).as_explicit()
+    b_new = Matrix(list(b) + 2*B_rows*[0])
+    return A_new, b_new
+
+
+def extreme_rays(A: Matrix, b: Matrix, V: Optional[Iterable[Matrix]]=None):
+    m, n = A.shape
+    rays = set()
+    if V is None:
+        V = vertices(A, b)
+    for v in V:
+        for B in bases(v, A, b):
+            mA_Bm1 = -sub_matrix(A,B)**-1
+            support_cone_rays = [mA_Bm1[:,i] for i in range(n)]  # type: List[Matrix]
+            for s in support_cone_rays:
+                As = A*s
+                if all(As[i] <= 0 for i in range(m)):
+                    rays.add(s.as_immutable())
+    return rays
+
+
+def V_representation(A: Matrix, b: Matrix):
+    ls_A = lineality_space(A, b)
+    A_Q, b_Q = P_without(A, b, ls_A)
+    V = vertices(A_Q, b_Q)
+    S = extreme_rays(A_Q, b_Q, V)
+    for w in ls_A:
+        S.update({w, -w})
+    return V, S
+
+
+def H_representation(V: Iterable[Matrix], S: Iterable[Matrix]):
+    A_1 = BlockMatrix(tuple(V)).as_explicit()
+    A_2 = BlockMatrix(tuple(S)).as_explicit()
+    n = A_1.shape[0]
+    p = A_1.shape[1]
+    q = A_2.shape[1]
+    A_Q = BlockMatrix([
+        [Identity(n), -A_1, -A_2],
+        [-Identity(n), A_1, A_2],
+        [Matrix([n*[0]]), Matrix([p*[1]]), Matrix([q*[0]])],
+        [ZeroMatrix(p, n), -Identity(p), ZeroMatrix(p, q)],
+        [ZeroMatrix(q, n), ZeroMatrix(q, p), -Identity(q)]
+    ]).as_explicit()
+    b_Q = Matrix(2*n*[0] + [1] + p*[0] + q*[0])
+    return A_Q, b_Q
+    pyfme.Cone()

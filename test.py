@@ -1,4 +1,4 @@
-from sympy import Matrix, Rational, Identity, BlockMatrix
+from sympy import ImmutableMatrix, Rational, Identity, BlockMatrix
 from simplex import *
 from utils import *
 from perturb import *
@@ -219,7 +219,25 @@ def test_practice_exam():
     assert v_init2 == Matrix([1,1,Rational(1,2)])
 
 
+def test_representations():
+    A = ImmutableMatrix([
+        [-1,0,0, 0],
+        [0,-1,0, 0],
+        [0,0,-1, 0],
+        [0, 1, 1, 0],
+    ])
+    b = ImmutableMatrix([0,0,0,1])
+    V, S = V_representation(A, b)
+    assert V == {ImmutableMatrix([0,0,0,0]), ImmutableMatrix([0,1,0,0]), ImmutableMatrix([0,0,1,0])}
+    assert S == {ImmutableMatrix([1,0,0,0]), ImmutableMatrix([0,0,0,1]), ImmutableMatrix([0,0,0,-1])}
+    A_H, b_H = H_representation(V, S)
+    V_H, S_H = V_representation(A_H, b_H)
+    assert V == V_H
+    assert S == S_H
+
+
 if __name__ == '__main__':
+    test_representations()
     test_practice_exam()
     test_example3428()
     test_ex74()
