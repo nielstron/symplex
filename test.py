@@ -198,7 +198,29 @@ def test_ex121():
     assert x_star == Matrix([0, 0, 4])
 
 
+def test_practice_exam():
+    A = Matrix([
+        [1, 0, 0],
+        [1, 1, 0],
+        [2, 1, 1],
+        [1, 0, 2],
+    ])
+    b = Matrix([1, 2, 4, 2])
+    B = {0,1,2}
+    v_init = determine_feasible_vertex(A, b, B)
+    B_f = next(iter(bases(v_init, A, b)))
+    assert v_init == Matrix([1, 1, Rational(1,2), 0])
+
+    c = Matrix([1, 1, 1])
+    x_1 = Matrix([1, -5, Rational(1, 2)])
+    assert is_contained(x_1, A, b)
+    v_init2 = determine_feasible_vertex3(A, b, c, x_1)
+    B_f = next(iter(bases(v_init, A, b)))
+    assert v_init2 == Matrix([1,1,Rational(1,2)])
+
+
 if __name__ == '__main__':
+    test_practice_exam()
     test_example3428()
     test_ex74()
     test_ex81()

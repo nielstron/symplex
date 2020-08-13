@@ -52,8 +52,9 @@ def is_basis(v: Matrix, A: Matrix, b: Matrix, B: Set[int]):
 
 def is_contained(v: Matrix, A: Matrix, b:Matrix):
     m = b.shape[0]
+    Av = A*v
     for i in range(m):
-        if (A[i,:]*v)[0] > b[i]:
+        if Av[i] > b[i]:
             print(f"Point not in Polygon, constraint {i} violated")
             return False
     return True

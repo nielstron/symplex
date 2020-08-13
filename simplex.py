@@ -91,14 +91,18 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot
             print(f"valid_p = {valid_p}")
             p = pivot_rule_p(valid_p)
             print(f"p = {p}")
-            R = [i for i in N if (A[i,:]*s[p])[0] > 0]
+            As = A*s[p]
+            print(f"A*s_p = {list(As)}")
+            R = [i for i in N if As[i] > 0]
             print(f"R = {R}")
             if len(R) == 0:
                 print("\phi unbounded from above on P")
                 res = SimplexResult.UNBOUNDED
                 opt_val = inf
             else:
-                step_sizes = [(b[i] - (A[i,:]*v)[0])/(A[i,:]*s[p])[0] for i in R]
+                Av = A*v
+                print(f"A*v = {list(Av)}")
+                step_sizes = [(b[i] - Av[i])/As[i] for i in R]
                 print(f"step_sizes = {step_sizes}")
                 lam = min(step_sizes)
                 print(f"lam = {lam}")
@@ -309,13 +313,17 @@ def determine_feasible_vertex3(A: Matrix, b: Matrix, c: Matrix, v: Matrix):
             ker_AI_vk = [Matrix([1]+(n-1)*[0])]
         w = ker_AI_vk[0]
         print(f"w^T: {list(w.transpose())}")
-        print(f"A*w: {list((A*w).transpose())}")
-        if (c.transpose()*w)[0] < 0 or ((c.transpose()*w)[0] == 0 and all((A[i,:]*w)[0] <= 0 for i in range(m))):
+        Aw = A*w
+        print(f"A*w: {list(Aw)}")
+        cw = c.transpose()*w
+        print(f"c^T*w = {list(cw)}")
+        if cw[0] < 0 or (cw[0] == 0 and all(Aw[i] <= 0 for i in range(m))):
             w = -w
-        if all((A[i,:]*w)[0] <= 0 for i in range(m)):
+        if all(Aw[i] <= 0 for i in range(m)):
             print(f"LP is unbounded in direction w: {list(w)}")
             return None
-        lam = min((b[i] - (A[i,:]*vk)[0]) / (A[i,:]*w)[0] for i in range(m) if (A[i,:]*w)[0] > 0)
+        Avk = A * vk
+        lam = min((b[i] - Avk[i]) / Aw[i] for i in range(m) if Aw[i] > 0)
         vk = vk + lam*w
         I_vk = active_constraints(vk, A, b)
         AI_vk = sub_matrix(A, I_vk)
