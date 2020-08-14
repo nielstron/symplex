@@ -241,8 +241,33 @@ def test_klee_minty():
     A, b, c = klee_minty(4, Rational(1,3))
     simplex_full(A, b, c, pivot_rule_i=PivotRule.LEXMIN(range(4)))
 
+def test_cycle():
+    # more examples: http://web.ist.utl.pt/~mcasquilho/CD_Casquilho/LP2004Comp&OR_GassVinjamuri.pdf
+    A = Matrix([
+        [-1, 0, 0],
+        [0, -1, 0],
+        [1, 1, -1],
+        [-4, -1, -2],
+        [1, -3, -3],
+        [3, 4, -6],
+        [0, 0, 1]
+    ])
+    b = Matrix(6*[0]+[1])
+    c = Matrix([0, 0, 1])
+    def custom_pivot(xs: List[int], *args, **kwargs):
+        if xs == [2,5]:
+            return 5
+        if xs == [0,3]:
+            return 3
+        if xs == [1,4]:
+            return 4
+        return xs[0]
+    res, _, _ = simplex(A, b, c, Matrix([0,0,0]), {0,1,4}, pivot_rule_i=custom_pivot)
+    assert res == SimplexResult.CYCLE
+
 
 if __name__ == '__main__':
+    test_cycle()
     test_klee_minty()
     # test_representations() SLOW!
     test_practice_exam()

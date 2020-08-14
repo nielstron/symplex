@@ -34,11 +34,18 @@ def nth_pivot(index: int):
     return _nth_pivot
 
 
+def max_scalar(xs: List[int], A: Matrix, v: Matrix, *args, **kwargs):
+    sp = [(A[i,:]*v)[0] for i in xs]
+    max_i, max_sp = max(zip(xs, sp), key=lambda x: x[1])
+    return max_i
+
+
 class PivotRule(Enum):
     MINIMAL = nth_pivot(0)
     MAXIMAL = nth_pivot(-1)
     #LEXMAX = lambda p: lex_pivot(lexmax, p) usually not useful
     LEXMIN = lambda p: lex_pivot(lexmin, p)
+    MAX_SCALAR = max_scalar
 
 
 def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL, **kwargs):
