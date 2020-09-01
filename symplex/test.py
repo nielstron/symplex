@@ -1,4 +1,4 @@
-from sympy import ImmutableMatrix
+from sympy import ImmutableMatrix, BlockMatrix, Matrix
 from symplex.simplex import *
 from symplex.perturb import *
 
@@ -10,7 +10,7 @@ def test_ex74():
     b = Matrix([0, 1, 3, 24, 0])
     c = Matrix([1,1])
     assert is_generic_rank(A, b)
-    res, v_star, opt_val, _ = simplex_full(A, b, c, pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL)
+    res, v_star, opt_val, _ = simplex_full(A, b, c, pivot_rule_p=PivotRule.MINIMAL(), pivot_rule_i=PivotRule.MINIMAL())
     assert res == SimplexResult.OPTIMAL
     assert v_star == Matrix([3, 6])
 
@@ -57,7 +57,7 @@ def test_ex81():
     b = Matrix(
         [6, 9, 3, 24, 0, 0, 0]
     )
-    v_feasible = determine_feasible_vertex_cone(A, b, pivot_rule_p=PivotRule.MAXIMAL, pivot_rule_i=PivotRule.MAXIMAL)
+    v_feasible = determine_feasible_vertex_cone(A, b, pivot_rule_p=PivotRule.MAXIMAL(), pivot_rule_i=PivotRule.MAXIMAL())
     assert is_contained(v_feasible, A, b)
     assert is_vertex(v_feasible, A, b)
 
@@ -74,13 +74,13 @@ def test_ex85():
     assert not is_contained(sub_matrix(A, I)**-1*sub_matrix(b, I), A, b)
     A_init, b_init, c_init, v_init = initial_vertex_polygon_dimensions(A, b, I)
     B_init = next(iter(bases(v_init, A_init, b_init)))
-    _, v_start1, _ = simplex(A_init, b_init, c_init, v_init, set(B_init), pivot_rule_i=PivotRule.MINIMAL)
+    _, v_start1, _, _ = simplex(A_init, b_init, c_init, v_init, B_init, pivot_rule_i=PivotRule.MINIMAL())
     v_start1 = Matrix(v_start1[:2])
     I_start1 = active_constraints(v_start1, A, b)
     assert v_start1 == Matrix([1,0])
     assert set(I_start1) == {2, 3}
     # does not work as expected, gives same result as above
-    #_, v_start2, _ = simplex(A_init, b_init, c_init, v_init, set(B_init), pivot_rule_i=PivotRule.MAXIMAL)
+    #_, v_start2, _ = simplex(A_init, b_init, c_init, v_init, B_init, pivot_rule_i=PivotRule.MAXIMAL())
     #v_start2 = Matrix(v_start2[:2])
     #I_start2 = active_constraints(v_start2, A, b)
     #assert v_start2 == Matrix([1,1])
@@ -103,7 +103,7 @@ def test_example3428():
     c = Matrix([1,1,1])
     B = {2,6,7}
     v_3 = Matrix([1,0,0])
-    simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.MINIMAL)
+    simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.MINIMAL())
 
     # two perturbations are applied
     r1 = range(m)
@@ -113,18 +113,18 @@ def test_example3428():
     e = pertubation_vector(r1, Rational(1,64))
     v_3_e = v_3 + (sub_matrix(A, B)**-1*sub_matrix(e, B))
     b_e = b + e
-    res, v_r1_star_expl_pert, _ = simplex(A, b_e, c, v_3_e, B, pivot_rule_i=PivotRule.MINIMAL)
+    res, v_r1_star_expl_pert, _, _ = simplex(A, b_e, c, v_3_e, B, pivot_rule_i=PivotRule.MINIMAL())
     v_r1_star_expl = v_star_from_perturbed_polygon(A, b, b_e, v_r1_star_expl_pert)
 
     e = pertubation_vector(r2, Rational(1,64))
     v_3_e = v_3 + (sub_matrix(A, B)**-1*sub_matrix(e, B))
     b_e = b + e
-    res, v_r2_star_expl_pert, _ = simplex(A, b_e, c, v_3_e, B, pivot_rule_i=PivotRule.MINIMAL)
+    res, v_r2_star_expl_pert, _, _= simplex(A, b_e, c, v_3_e, B, pivot_rule_i=PivotRule.MINIMAL())
     v_r2_star_expl = v_star_from_perturbed_polygon(A, b, b_e, v_r2_star_expl_pert)
 
     # and once with our fancy lexmin rule
-    res, v_r1_star_lexmin, _ = simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN(r1))
-    res, v_r2_star_lexmin, _ = simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN(r2))
+    res, v_r1_star_lexmin, _, _ = simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN(r1))
+    res, v_r2_star_lexmin, _, _ = simplex(A, b, c, v_3, B, pivot_rule_i=PivotRule.LEXMIN(r2))
     assert v_r1_star_expl == v_r1_star_lexmin
     assert v_r2_star_expl == v_r2_star_lexmin
 
@@ -149,7 +149,7 @@ def test_ex112():
     c = Matrix([0, 0, -1])
     B = {0,1}
     # Note the primal LP now is max b^Tx for A^Tx <= c which we hence input below
-    res, v_star, opt_val, _ = simplex_tableau(A.transpose(), c, b, B, pivot_rule=PivotRule.MAXIMAL)
+    res, v_star, opt_val, _ = simplex_tableau(A.transpose(), c, b, B, pivot_rule=PivotRule.MAXIMAL())
     assert v_star == Matrix([0, 0, 1])
     assert opt_val == -1
 
@@ -191,7 +191,7 @@ def test_ex121():
     assert is_contained(x_bar_0, A, b)
     assert set(active_constraints(x_bar_0, A, b)) == {0, 1, 2, 6}
     B = list(bases(x_bar_0,A,b))[-1]
-    res, x_star, opt_val = simplex(A, b, c, x_bar_0, set(B), pivot_rule_i=PivotRule.MAXIMAL, pivot_rule_p=PivotRule.MAXIMAL)
+    res, x_star, opt_val, _ = simplex(A, b, c, x_bar_0, set(B), pivot_rule_i=PivotRule.MAXIMAL(), pivot_rule_p=PivotRule.MAXIMAL())
     assert x_star == Matrix([0, 0, 4])
 
 
@@ -206,7 +206,7 @@ def test_practice_exam():
     B = {0,1,2}
     v_init = determine_feasible_vertex_dimensions(A, b, B)
     B_f = next(iter(bases(v_init, A, b)))
-    assert v_init == Matrix([1, 1, Rational(1,2), 0])
+    assert v_init == Matrix([1, 1, Rational(1,2)])
 
     c = Matrix([1, 1, 1])
     x_1 = Matrix([1, -5, Rational(1, 2)])
@@ -260,7 +260,7 @@ def test_cycle():
         if xs == [1,4]:
             return 4
         return xs[0]
-    res, _, _ = simplex(A, b, c, Matrix([0,0,0]), {0,1,4}, pivot_rule_i=custom_pivot)
+    res, _, _, _ = simplex(A, b, c, Matrix([0,0,0]), {0,1,4}, pivot_rule_i=custom_pivot)
     assert res == SimplexResult.CYCLE
 
 

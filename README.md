@@ -15,5 +15,9 @@ References to course content may occur.
 
 #### Usage
 
-A number of example usages of the code is contained in `test.py`.
+Note that the only way to specify a linear problem is in natural form,
+that is supplying a matrix _A_ and vectors _b_ and _c_ such that
+the argument to _min c^T\*x , A*x <= b_ is searched.
+
+A number of example usages of the code is contained in `symples/test.py`.
 It is at the same time a very small test suite for this package.

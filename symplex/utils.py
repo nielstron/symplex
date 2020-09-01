@@ -1,6 +1,9 @@
 from sympy import Matrix, BlockMatrix, Identity, ZeroMatrix
 from itertools import combinations
 from typing import *
+from logging import getLogger
+
+_LOGGER = getLogger(__name__)
 
 
 def active_constraints(v: Matrix, A: Matrix, b: Matrix):
@@ -46,10 +49,10 @@ def is_basis(v: Matrix, A: Matrix, b: Matrix, B: Set[int]):
     A_B = Matrix([A[i,:] for i in B])
     b_B = Matrix([b[i] for i in B])
     if A_B.rank() != v.shape[0]:
-        print("Rank of A is too low")
+        _LOGGER.debug("Rank of A is too low")
         return False
     if (A_B**-1)*b_B != v:
-        print("A is not active in all of v")
+        _LOGGER.debug("A is not active in all of v")
         return False
     return True
 
@@ -59,7 +62,7 @@ def is_contained(v: Matrix, A: Matrix, b:Matrix):
     Av = A*v
     for i in range(m):
         if Av[i] > b[i]:
-            print(f"Point not in Polygon, constraint {i} violated")
+            _LOGGER.debug(f"Point not in Polygon, constraint {i} violated")
             return False
     return True
 
@@ -95,9 +98,9 @@ def is_generic_rank(A: Matrix, b: Matrix):
         A_I = sub_matrix(A, I)
         b_I = sub_matrix(b, I)
         if is_feasible_eq(A_I, b_I):
-            print(f"Ax <= b is not generic, A_Ix = b_I is feasible for I={I}")
+            _LOGGER.debug(f"Ax <= b is not generic, A_Ix = b_I is feasible for I={I}")
             return False
-    print("Ax <= b is generic by rank comparison")
+    _LOGGER.debug("Ax <= b is generic by rank comparison")
     return True
 
 
