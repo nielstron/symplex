@@ -1,13 +1,16 @@
-from sympy import Matrix, pretty
-from typing import *
 from enum import Enum
 from math import inf
+from logging import getLogger
 
-from utils import *
-from perturb import *
+from symplex.perturb import *
+
+_LOGGER = getLogger(__name__)
 
 
 class SimplexResult(Enum):
+    """
+    Possible outcomes of the simplex algorithm
+    """
     OPTIMAL = "optimal"
     UNBOUNDED = "unbounded"
     INFEASIBLE = "infeasible"
@@ -15,40 +18,55 @@ class SimplexResult(Enum):
     CYCLE = "cycle"
 
 
-def lex_pivot(lexord = lexmin, permutation: Iterable[int] = None):
+PIVOT_RULE = Callable[..., int]
+
+
+def lex_pivot(permutation: Iterable[int] = None):
     """
-    returns a lexicographical maximizing pivot rule for a given permutation and lexmax/lexmin
+    returns a lexicographical minimizing pivot rule for a given permutation
     """
     def _lexmax_pivot(xs: List[int], A: Matrix, b: Matrix, v: Matrix, B: Set[int], s: Matrix, R: List[int], mA_Bm1: Matrix, *args, **kwargs):
         ds = [delta(x, A, b, v, B, s, permutation, mA_Bm1) for x in R]
         for x, d in zip(R, ds):
-            print(f"d_{x}: {list(d)}")
-        _, chosen_in = lexord(ds)
+            _LOGGER.debug(f"d_{x}: {list(d)}")
+        _, chosen_in = lexmin(ds)
         return R[chosen_in]
     return _lexmax_pivot
 
 
 def nth_pivot(index: int):
-    def _nth_pivot(x: List[int], *args, **kwargs):
-        return x[index]
+    """
+    Returns a pivot rule that always returns the value at the nth position (0-indexed)
+    """
+    def _nth_pivot(xs: List[int], *args, **kwargs):
+        return xs[index]
     return _nth_pivot
 
 
-def max_scalar(xs: List[int], A: Matrix, v: Matrix, *args, **kwargs):
+def max_scalar_pivot(xs: List[int], A: Matrix, v: Matrix, *args, **kwargs):
+    """
+    A pivot rule that always choses the constraint along which the objective value may be maximised
+    NOTE this has neither been tested nor investigated thoroughly
+    """
+
     sp = [(A[i,:]*v)[0] for i in xs]
     max_i, max_sp = max(zip(xs, sp), key=lambda x: x[1])
     return max_i
 
 
 class PivotRule(Enum):
-    MINIMAL = nth_pivot(0)
-    MAXIMAL = nth_pivot(-1)
-    #LEXMAX = lambda p: lex_pivot(lexmax, p) usually not useful
-    LEXMIN = lambda p: lex_pivot(lexmin, p)
-    MAX_SCALAR = max_scalar
+    NTH = nth_pivot
+    MINIMAL = lambda: nth_pivot(0)
+    MAXIMAL = lambda: nth_pivot(-1)
+    LEXMIN = lambda p: lex_pivot(p)
+    MAX_SCALAR = lambda: max_scalar_pivot
+
+    def __call__(self, *args, **kwargs):
+        # remove type hint markings about PivotRule not being callable
+        pass
 
 
-def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL, **kwargs):
+def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot_rule_p: PIVOT_RULE=PivotRule.MINIMAL(), pivot_rule_i: PIVOT_RULE=PivotRule.MINIMAL(), **kwargs):
     """
     Performs simplex algorithm on given input
     Note that all constraints are 0-indexed (beware off-by-one errors)
@@ -56,81 +74,70 @@ def simplex(A: Matrix, b: Matrix, c: Matrix, v: Matrix, B: Container[int], pivot
     res = None
     opt_val = None
     v_star = None
+    unique = False
     B = set(B)
     m, n = A.shape
     if not is_contained(v, A, b):
+        _LOGGER.warning(f"{list(v)} is not contained in the specified Polygon")
         res = SimplexResult.INVALID
     if not is_basis(v, A, b, B):
-        print(f"{B} is not a valid Basis of {v}")
+        _LOGGER.warning(f"{B} is not a valid Basis of {list(v)}")
         res = SimplexResult.INVALID
     iteration = -1
     visited_bases = {frozenset(B)}
     while res is None:
         iteration += 1
-        print(f"Iteration {iteration}")
-        print(f"v_{iteration}^T: {list(v.transpose())}")
-        print(f"B = {B}")
 
         N = set(range(m)) - B
-        print(f"N = {N}")
         AB = sub_matrix(A, sorted(list(B)))
-        print("A_B:")
-        print(pretty(AB))
         mABm1 = -AB**-1
-        print("-A_B^-1:")
-        print(pretty(mABm1))
         s = [mABm1[:,i] for i in range(n)]
-        print(f"s:")
-        print(pretty(s))
 
         mABm1_mulc = mABm1.transpose() * c
-        print(f"-A_B^-1*c^T: {list(mABm1_mulc.transpose())}")
         if all(e <= 0 for e in mABm1_mulc[:]): # equivalent: all(c.transpose()*s[j] <= 0 for j in range(n)):
-            print("v optimal")
-            # print some properties
+            # we have arrived at an optimal solution, check for uniqueness
             if all(e < 0 for e in mABm1_mulc[:]):
-                print(f"v is the unique optimum")
+                unique = True
             res = SimplexResult.OPTIMAL
             v_star = v
             opt_val = (c.transpose()*v)[0]
         else:
+            # we can still improve along some edge
             valid_p = [p for p in range(n) if (c.transpose()*s[p])[0] > 0]
-            print(f"valid_p = {valid_p}")
             p = pivot_rule_p(valid_p)
-            print(f"p = {p}")
             As = A*s[p]
-            print(f"A*s_p = {list(As)}")
             R = [i for i in N if As[i] > 0]
-            print(f"R = {R}")
             if len(R) == 0:
-                print("\phi unbounded from above on P")
+                # the result in unbounded in the direction of the cost function
                 res = SimplexResult.UNBOUNDED
                 opt_val = inf
             else:
+                # we have found a constraint for improvement along which we can improve costs
                 Av = A*v
-                print(f"A*v = {list(Av)}")
                 step_sizes = [(b[i] - Av[i])/As[i] for i in R]
-                print(f"step_sizes = {step_sizes}")
                 lam = min(step_sizes)
-                print(f"lam = {lam}")
                 i_in_candidates = [i for i, s in zip(R, step_sizes) if s == lam]
-                print(f"i_in candidates = {i_in_candidates}")
                 i_in = pivot_rule_i(i_in_candidates, A=A, b=b, v=v, B=B, mA_Bm1=mABm1, s=s[p], R=R)
-                print(f"i_in = {i_in}")
                 i_out = sorted(list(B))[p]
-                print(f"i_out = {i_out}")
                 B = B - {i_out} | {i_in}
                 v = v + lam*s[p]
+
                 if B in visited_bases:
-                    print("Basis visited second time, detecting cycle and abort")
+                    # Basis visited second time, detecting cycle and abort
                     res = SimplexResult.CYCLE
                 visited_bases.add(frozenset(B))
-    return res, v_star, opt_val
+    return res, v_star, opt_val, unique
 
 
-def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
+def initial_vertex_polygon_dimensions(A: Matrix, b: Matrix, I: Set[int]):
     """
-    cf Lemma 3.2.5
+    Extends the polygon with additional dimensions for each violated constraint
+    The resulting polygon will contain a solution of index set I
+    which is assumed to be potential basis (i.e. n-dimensional and linearly independent)
+    Minimizing the values in the additional dimensions restricted to be at least 0 will yield
+    a vertex within the original dimensionality, with 0 in each added dimension.
+    If not, the original polyhedrion was infeasible.
+    cf. Lemma 3.2.5
     """
     m, n = A.shape
     assert len(I) == n
@@ -173,22 +180,29 @@ def initial_vertex_polygon(A: Matrix, b: Matrix, I: Set[int]):
     return A_p, b_p, c, z_0
 
 
-def determine_feasible_vertex(A: Matrix, b: Matrix, I: Set[int], **kwargs):
+def determine_feasible_vertex_dimensions(A: Matrix, b: Matrix, I: Set[int], **kwargs):
+    """
+    Uses the `initial_vertex_polygon_dimensions` to determine an initial vertex for the given polygon
+    """
     n = A.shape[1]
-    A_init, b_init, c_init, v_init = initial_vertex_polygon(A, b, I)
+    A_init, b_init, c_init, v_init = initial_vertex_polygon_dimensions(A, b, I)
     B_init = next(iter(bases(v_init, A_init, b_init)))
-    r_init, v, opt_val = simplex(A_init, b_init, c_init, v_init, set(B_init), **kwargs)
+    r_init, v, opt_val, _ = simplex(A_init, b_init, c_init, v_init, B_init, **kwargs)
     if opt_val is None or opt_val < 0:
-        print("Problem is infeasible")
+        _LOGGER.debug("Problem is infeasible")
         return None
+    _LOGGER.debug(f"Initial vertex {list(v)} of extended polygon could be determined")
     return Matrix(v[:n])
 
 
-def initial_vertex_polygon2(A: Matrix, b: Matrix):
+def initial_vertex_polygon_cone(A: Matrix, b: Matrix):
     """
-    cf ex 8.1
+    Extends the polygon by a dimension in which the polygon is decreasing in size and focusing in the origin.
+    Thus a pointed cone is generated featuring an improving edge
+    from the origin to one of the vertices of the original polygon.
     In addition, we restrict x_n+1 <= 1
     s.t. we directly obtain a feasoble solution of P as optimal vertex of P'
+    cf. ex 8.1
     """
     m, n = A.shape
     A_entries = []
@@ -206,31 +220,42 @@ def initial_vertex_polygon2(A: Matrix, b: Matrix):
     return A_p, b_p, c_p, v_0
 
 
-def determine_feasible_vertex2(A: Matrix, b: Matrix, **kwargs):
+def determine_feasible_vertex_cone(A: Matrix, b: Matrix, **kwargs):
+    """
+    Uses the `initial_vertex_polygon_cone` to determine an initial vertex for the given polygon
+    """
     m, n = A.shape
-    A_init, b_init, c_init, v_0 = initial_vertex_polygon2(A, b)
+    A_init, b_init, c_init, v_0 = initial_vertex_polygon_cone(A, b)
     B_init = next(iter(bases(v_0, A_init, b_init)))
-    res, v_init, opt_val = simplex(A_init, b_init, c_init, v_0, set(B_init), **kwargs)
+    res, v_init, opt_val, _ = simplex(A_init, b_init, c_init, v_0, set(B_init), **kwargs)
     if opt_val is None or opt_val < 1:
-        print("Polygon is infeasible")
+        _LOGGER.debug("Polygon is infeasible")
         return None
+    _LOGGER.debug(f"Initial vertex {list(v_init)} of extended polygon could be determined")
     return Matrix(v_init[:n])
 
 
-def simplex_full(A: Matrix, b: Matrix, c: Matrix, feasible_vertex_procedure=determine_feasible_vertex2, **kwargs):
-    n = A.shape[1]
+def simplex_full(A: Matrix, b: Matrix, c: Matrix, feasible_vertex_procedure=determine_feasible_vertex_cone, **kwargs):
+    """
+    Applies the simplex procedure without requiring a starting vertex or its basis by
+    first applying the given procedure to determine a feasible vertex and the applying the simplex algorithm
+    """
     v = feasible_vertex_procedure(A, b, **kwargs)
     if v is None:
-        return SimplexResult.INFEASIBLE, None, None
+        return SimplexResult.INFEASIBLE, None, None, False
     B = next(iter(bases(v, A, b)))
     return simplex(A, b, c, v, set(B), **kwargs)
 
 
-def simplex_tableau_step(A: Matrix, b: Matrix, c: Matrix, B: Set[int], pivot_rule=PivotRule.MINIMAL):
+def simplex_tableau_step(A: Matrix, b: Matrix, c: Matrix, B: Set[int], pivot_rule=PivotRule.MINIMAL()):
     """
     Solving min b^Ty for A^Ty = c
     which is the dual of
     max c^Tx for Ax <= b
+
+    This procedure uses the tableau method rather than the original simplex algorithm,
+    however in a rather brute force manner.
+    As the optimal vertex is not itself computed at any time, the basis of the optimal vertex is returned instead.
     """
     n, m = A.shape  # tranposed shape
     b_B = sub_matrix(b, B)
@@ -244,11 +269,11 @@ def simplex_tableau_step(A: Matrix, b: Matrix, c: Matrix, B: Set[int], pivot_rul
     ]).as_explicit()
     N = set(range(n)) - B
     if all(tableau[0, j+1] >= 0 for j in N):
-        print("v is optimal")
         return SimplexResult.OPTIMAL, B, A_Bm1Tc, -tableau[0,0]
+
     if any(tableau[0,j+1] < 0 and all(tableau[i+1,j+1] <= 0 for i in range(m)) for j in N):
-        print("Problem is unbounded")
         return SimplexResult.UNBOUNDED, None, None, inf
+
     js = [j for j in N if tableau[0, j+1] < 0]
     j = pivot_rule(js)
     step_sizes = [(i, tableau[i+1,0]/tableau[i+1,j+1]) for i in range(m) if tableau[i+1, j+1] > 0]
@@ -256,6 +281,7 @@ def simplex_tableau_step(A: Matrix, b: Matrix, c: Matrix, B: Set[int], pivot_rul
     B_slist = sorted(list(B))
     rs = [B_slist[i] for (i, s) in step_sizes if s == lam]
     r = pivot_rule(rs)
+
     return None, B - {r} | {j}, A_Bm1Tc, -tableau[0,0]
 
 
@@ -275,16 +301,20 @@ def simplex_tableau(A: Matrix, b: Matrix, c: Matrix, B: Set[int], **kwargs):
     Solving min b^Ty for A^Ty = c
     which is the dual of
     max c^Tx for Ax <= b
+
+    This procedure uses the tableau method rather than the original simplex algorithm,
+    however in a rather brute force manner.
+    As the optimal vertex is not itself computed at any time, the basis of the optimal vertex is returned instead.
     """
-    res = None
     B_k = B
+    res = None
     while res is None:
         res, B_k, v_k, opt_val = simplex_tableau_step(A, b, c, B_k, **kwargs)
     v_full = solution_from_basis_solution(v_k, B_k, b.shape[0])
     return res, v_full, opt_val, B_k
 
 
-def is_generic2(A: Matrix, b: Matrix, **kwargs):
+def is_generic_feasibility(A: Matrix, b: Matrix, **kwargs):
     """
     Check genericity by checking for feasibility of sub polygons
     following the definition directly
@@ -300,47 +330,60 @@ def is_generic2(A: Matrix, b: Matrix, **kwargs):
             **kwargs
         )
         if res != SimplexResult.INFEASIBLE:
-            print(f"Matrix A is not generic, index set {I} has result {res}")
+            _LOGGER.debug(f"Matrix A is not generic, index set {I} has result {res}")
             return False
-    print("Matrix A is generic")
+    _LOGGER.debug("Matrix A is generic")
     return True
 
 
-def determine_feasible_vertex3(A: Matrix, b: Matrix, c: Matrix, v: Matrix, **kwargs):
-    """ cf ex 9.3 """
+def determine_feasible_vertex_kernel(A: Matrix, b: Matrix, c: Matrix, v: Matrix, **kwargs):
+    """
+    Determines a feasible vertex of the polygon by starting with any feasible vertex
+    and successively walking along vectors of the nullspace of matrix of active constraints.
+    As long as a vertex is not reached, the dimension of this matrix is not full-dimensional
+    and hence the position changes.
+    With each step, the dimensionality of the nullspace is reduced by one.
+    cf. ex 9.3
+    """
     m, n = A.shape
     k = 0
     vk = v
     I_vk = active_constraints(vk, A, b)
     AI_vk = sub_matrix(A, I_vk)
     while AI_vk.rank() < n:
-        print(f"Iteration {k}")
+        # k counts iterations
+
         ker_AI_vk = AI_vk.nullspace()
         if len(ker_AI_vk) == 0:
+            # for empty matrices, an empty list is returned as nullspace so we choose any vector
+            # which is in R^n
             ker_AI_vk = [Matrix([1]+(n-1)*[0])]
         w = ker_AI_vk[0]
-        print(f"w^T: {list(w.transpose())}")
+
         Aw = A*w
-        print(f"A*w: {list(Aw)}")
         cw = c.transpose()*w
-        print(f"c^T*w = {list(cw)}")
         if cw[0] < 0 or (cw[0] == 0 and all(Aw[i] <= 0 for i in range(m))):
             w = -w
         if all(Aw[i] <= 0 for i in range(m)):
-            print(f"LP is unbounded in direction w: {list(w)}")
+            _LOGGER.debug(f"LP is unbounded in direction w: {list(w)}")
             return None
+
         Avk = A * vk
         step_sizes = list((b[i] - Avk[i]) / Aw[i] for i in range(m) if Aw[i] > 0)
         lam = min(step_sizes)
         vk = vk + lam*w
         I_vk = active_constraints(vk, A, b)
         AI_vk = sub_matrix(A, I_vk)
+
         k += 1
     return vk
 
 
-def determine_maximizer(A: Matrix, b: Matrix, c: Matrix, feasible_vertex_func=determine_feasible_vertex2, **kwargs):
-    """ Determines a maximizer for a potentially non-line-free Polyhedron """
+def determine_maximizer(A: Matrix, b: Matrix, c: Matrix, feasible_vertex_func=determine_feasible_vertex_cone, **kwargs):
+    """
+    Determines a maximizer for a potentially non-line-free Polyhedron
+    by removing its lineality space
+    """
     A_Q, b_Q = P_without(A, b, lineality_space(A, b))
     v = feasible_vertex_func(A_Q, b_Q, **kwargs)
     B = next(iter(bases(v, A_Q, b_Q)))

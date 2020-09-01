@@ -1,5 +1,4 @@
 from sympy import Matrix, BlockMatrix, Identity, ZeroMatrix
-from sympy.matrices.common import NonInvertibleMatrixError
 from itertools import combinations
 from typing import *
 
@@ -86,7 +85,7 @@ def is_feasible_eq(A: Matrix, b: Matrix):
     return False
 
 
-def is_generic(A: Matrix, b: Matrix):
+def is_generic_rank(A: Matrix, b: Matrix):
     """
     Check genericity by rank comparison
     cf Theorem 3.4.5

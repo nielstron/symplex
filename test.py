@@ -1,7 +1,6 @@
-from sympy import ImmutableMatrix, Rational, Identity, BlockMatrix
-from simplex import *
-from utils import *
-from perturb import *
+from sympy import ImmutableMatrix
+from symplex.simplex import *
+from symplex.perturb import *
 
 
 def test_ex74():
@@ -10,8 +9,8 @@ def test_ex74():
     m, n = A.shape
     b = Matrix([0, 1, 3, 24, 0])
     c = Matrix([1,1])
-    assert is_generic(A, b)
-    res, v_star, opt_val = simplex_full(A, b, c, pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL)
+    assert is_generic_rank(A, b)
+    res, v_star, opt_val, _ = simplex_full(A, b, c, pivot_rule_p=PivotRule.MINIMAL, pivot_rule_i=PivotRule.MINIMAL)
     assert res == SimplexResult.OPTIMAL
     assert v_star == Matrix([3, 6])
 
@@ -35,13 +34,13 @@ def test_ex82():
     assert I_x_0 == [3,5,6]
     assert not is_contained(x_0, A, b)
 
-    v_feasible = determine_feasible_vertex(A, b, I_x_0, pivot_rule_p=PivotRule.MAXIMAL, pivot_rule_i=PivotRule.MAXIMAL)
+    v_feasible = determine_feasible_vertex_dimensions(A, b, I_x_0, pivot_rule_p=PivotRule.MAXIMAL(), pivot_rule_i=PivotRule.MAXIMAL())
     assert v_feasible == Matrix([6, 0, 3])
 
     x_p = Matrix([0,0,9])
     assert is_contained(x_p, A, b)
     B = next(iter(bases(x_p, A, b)))
-    res, v_star, opt_val = simplex(A, b, c, x_p, set(B), pivot_rule_p=PivotRule.MAXIMAL, pivot_rule_i=PivotRule.MAXIMAL)
+    res, v_star, opt_val, _ = simplex(A, b, c, x_p, set(B), pivot_rule_p=PivotRule.MAXIMAL(), pivot_rule_i=PivotRule.MAXIMAL())
     assert v_star == Matrix([4, 6, 0])
 
 
@@ -58,7 +57,7 @@ def test_ex81():
     b = Matrix(
         [6, 9, 3, 24, 0, 0, 0]
     )
-    v_feasible = determine_feasible_vertex2(A, b, pivot_rule_p=PivotRule.MAXIMAL, pivot_rule_i=PivotRule.MAXIMAL)
+    v_feasible = determine_feasible_vertex_cone(A, b, pivot_rule_p=PivotRule.MAXIMAL, pivot_rule_i=PivotRule.MAXIMAL)
     assert is_contained(v_feasible, A, b)
     assert is_vertex(v_feasible, A, b)
 
@@ -73,7 +72,7 @@ def test_ex85():
     b = Matrix([2, 0, 0, 1])
     I = {0, 2}
     assert not is_contained(sub_matrix(A, I)**-1*sub_matrix(b, I), A, b)
-    A_init, b_init, c_init, v_init = initial_vertex_polygon(A, b, I)
+    A_init, b_init, c_init, v_init = initial_vertex_polygon_dimensions(A, b, I)
     B_init = next(iter(bases(v_init, A_init, b_init)))
     _, v_start1, _ = simplex(A_init, b_init, c_init, v_init, set(B_init), pivot_rule_i=PivotRule.MINIMAL)
     v_start1 = Matrix(v_start1[:2])
@@ -130,7 +129,6 @@ def test_example3428():
     assert v_r2_star_expl == v_r2_star_lexmin
 
 
-
 def test_ex93():
     A = BlockMatrix([
         [Identity(3)],
@@ -139,7 +137,7 @@ def test_ex93():
     b = Matrix(6*[1])
     c = Matrix([0, 0, 1])
     v0 = Matrix(3*[0])
-    v_start1 = determine_feasible_vertex3(A, b, c, v0)
+    v_start1 = determine_feasible_vertex_kernel(A, b, c, v0)
 
 
 def test_ex112():
@@ -177,7 +175,6 @@ def test_ex113():
     assert opt_val == Rational(125, 6)
 
 
-
 def test_ex121():
     c = Matrix([-1, -1, 1])
     b = Matrix([6+Rational(4,3), 4+Rational(2,3), 6, 4, 0, 0, 0])
@@ -207,14 +204,14 @@ def test_practice_exam():
     ])
     b = Matrix([1, 2, 4, 2])
     B = {0,1,2}
-    v_init = determine_feasible_vertex(A, b, B)
+    v_init = determine_feasible_vertex_dimensions(A, b, B)
     B_f = next(iter(bases(v_init, A, b)))
     assert v_init == Matrix([1, 1, Rational(1,2), 0])
 
     c = Matrix([1, 1, 1])
     x_1 = Matrix([1, -5, Rational(1, 2)])
     assert is_contained(x_1, A, b)
-    v_init2 = determine_feasible_vertex3(A, b, c, x_1)
+    v_init2 = determine_feasible_vertex_kernel(A, b, c, x_1)
     B_f = next(iter(bases(v_init, A, b)))
     assert v_init2 == Matrix([1,1,Rational(1,2)])
 
@@ -241,6 +238,7 @@ def test_klee_minty():
     A, b, c = klee_minty(4, Rational(1,3))
     simplex_full(A, b, c, pivot_rule_i=PivotRule.LEXMIN(range(4)))
 
+
 def test_cycle():
     # more examples: http://web.ist.utl.pt/~mcasquilho/CD_Casquilho/LP2004Comp&OR_GassVinjamuri.pdf
     A = Matrix([
@@ -266,7 +264,28 @@ def test_cycle():
     assert res == SimplexResult.CYCLE
 
 
+def test_exam():
+    A = Matrix([
+        [1, 1, 1],
+        [1, -1, 1],
+        [0, 1, 1],
+        [0, -1, 1],
+        [-1, 0, 0],
+        [0, 0, -1]
+    ])
+    b = Matrix([1, 1, 1, 1, 2, 0])
+    c = Matrix([0,4,6])
+    I = {0,1,5}
+    x_1 = Matrix([1,0,0])
+    simplex(A, b, c, x_1, I)
+    x_2 = Matrix([0,0,1])
+    I_2 = active_constraints(x_2, A, b)
+    B = next(iter(bases(x_2, A, b)))
+    simplex(A, b, c, x_2, B)
+
+
 if __name__ == '__main__':
+    test_exam()
     test_cycle()
     test_klee_minty()
     # test_representations() SLOW!

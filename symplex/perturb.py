@@ -1,6 +1,5 @@
-from typing import *
-from sympy import Matrix, Rational, symbols, RealNumber
-from utils import *
+from sympy import Rational
+from symplex.utils import *
 
 
 def pertubation_vector(perm: Iterable[int], eps):
@@ -109,15 +108,6 @@ def lexmin(ds: Iterable[Matrix]):
     d, i_d = None, -1
     for i, dp in enumerate(ds):
         if d is None or lexcmp(d, dp) > 0:
-            d = dp
-            i_d = i
-    return d, i_d
-
-
-def lexmax(ds: Iterable[Matrix]):
-    d, i_d = None, -1
-    for i, dp in enumerate(ds):
-        if d is None or lexcmp(d, dp) < 0:
             d = dp
             i_d = i
     return d, i_d
